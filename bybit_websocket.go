@@ -10,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+
+	"github.com/rs/zerolog/log"
 )
 
 type MessageHandler func(message string) error
@@ -18,7 +20,8 @@ func (b *WebSocket) handleIncomingMessages() {
 	for {
 		_, message, err := b.conn.ReadMessage()
 		if err != nil {
-			fmt.Println("Error reading:", err)
+			// fmt.Println("Error reading:", err)
+			log.Error().Err(err).Msg("Error reading")
 			b.isConnected = false
 			return
 		}
@@ -26,7 +29,8 @@ func (b *WebSocket) handleIncomingMessages() {
 		if b.onMessage != nil {
 			err := b.onMessage(string(message))
 			if err != nil {
-				fmt.Println("Error handling message:", err)
+				// fmt.Println("Error handling message:", err)
+				log.Error().Err(err).Msg("Error handling message")
 				return
 			}
 		}
@@ -40,10 +44,12 @@ func (b *WebSocket) monitorConnection() {
 	for {
 		<-ticker.C
 		if !b.isConnected && b.ctx.Err() == nil { // Check if disconnected and context not done
-			fmt.Println("Attempting to reconnect...")
+			// fmt.Println("Attempting to reconnect...")
+			log.Debug().Msg("Attempting to reconnect...")
 			con := b.Connect() // Example, adjust parameters as needed
 			if con == nil {
-				fmt.Println("Reconnection failed:")
+				// fmt.Println("Reconnection failed:")
+				log.Error().Msg("Reconnection failed:")
 			} else {
 				b.isConnected = true
 				go b.handleIncomingMessages() // Restart message handling
@@ -127,7 +133,8 @@ func (b *WebSocket) Connect() *WebSocket {
 
 	if b.requiresAuthentication() {
 		if err = b.sendAuth(); err != nil {
-			fmt.Println("Failed Connection:", fmt.Sprintf("%v", err))
+			// fmt.Println("Failed Connection:", fmt.Sprintf("%v", err))
+			log.Error().Err(err).Msg("Failed Connection")
 			return nil
 		}
 	}
@@ -151,10 +158,12 @@ func (b *WebSocket) SendSubscription(args []string) (*WebSocket, error) {
 	}
 	fmt.Println("subscribe msg:", fmt.Sprintf("%v", subMessage["args"]))
 	if err := b.sendAsJson(subMessage); err != nil {
-		fmt.Println("Failed to send subscription:", err)
+		// fmt.Println("Failed to send subscription:", err)
+		log.Debug().Err(err).Msg("Failed to send subscription")
 		return b, err
 	}
-	fmt.Println("Subscription sent successfully.")
+	// fmt.Println("Subscription sent successfully.")
+	log.Debug().Msg("Subscription sent successfully.")
 	return b, nil
 }
 
@@ -167,15 +176,19 @@ func (b *WebSocket) sendRequest(op string, args map[string]interface{}, headers 
 		"op":     op,
 		"args":   []interface{}{args},
 	}
-	fmt.Println("request headers:", fmt.Sprintf("%v", request["header"]))
-	fmt.Println("request op channel:", fmt.Sprintf("%v", request["op"]))
-	fmt.Println("request msg:", fmt.Sprintf("%v", request["args"]))
+	// fmt.Println("request headers:", fmt.Sprintf("%v", request["header"]))
+	// fmt.Println("request op channel:", fmt.Sprintf("%v", request["op"]))
+	// fmt.Println("request msg:", fmt.Sprintf("%v", request["args"]))
+	log.Debug().Msg(fmt.Sprintf("request headers: %v", request["header"]))
+	log.Debug().Msg(fmt.Sprintf("uest op channel: %v", request["op"]))
+	log.Debug().Msg(fmt.Sprintf("request msg: %v", request["args"]))
 	return b.sendAsJson(request)
 }
 
 func ping(b *WebSocket) {
 	if b.pingInterval <= 0 {
-		fmt.Println("Ping interval is set to a non-positive value.")
+		// fmt.Println("Ping interval is set to a non-positive value.")
+		log.Error().Msg("Ping interval is set to a non-positive value.")
 		return
 	}
 
@@ -192,17 +205,21 @@ func ping(b *WebSocket) {
 			}
 			jsonPingMessage, err := json.Marshal(pingMessage)
 			if err != nil {
-				fmt.Println("Failed to marshal ping message:", err)
+				// fmt.Println("Failed to marshal ping message:", err)
+				log.Error().Err(err).Msg("Failed to marshal ping message")
 				continue
 			}
 			if err := b.conn.WriteMessage(websocket.TextMessage, jsonPingMessage); err != nil {
-				fmt.Println("Failed to send ping:", err)
+				// fmt.Println("Failed to send ping:", err)
+				log.Error().Err(err).Msg("Failed to send ping")
 				return
 			}
-			fmt.Println("Ping sent with UTC time:", currentTime)
+			// fmt.Println("Ping sent with UTC time:", currentTime)
+			log.Debug().Msg(fmt.Sprintf("Ping sent with UTC time: %v", currentTime))
 
 		case <-b.ctx.Done():
-			fmt.Println("Ping context closed, stopping ping.")
+			// fmt.Println("Ping context closed, stopping ping.")
+			log.Debug().Msg("Ping context closed, stopping ping.")
 			return
 		}
 	}
@@ -235,14 +252,16 @@ func (b *WebSocket) sendAuth() error {
 
 	// Convert to hexadecimal instead of base64
 	signature := hex.EncodeToString(h.Sum(nil))
-	fmt.Println("signature generated : " + signature)
+	// fmt.Println("signature generated : " + signature)
+	log.Debug().Msg("signature generated: " + signature)
 
 	authMessage := map[string]interface{}{
 		"req_id": uuid.New(),
 		"op":     "auth",
 		"args":   []interface{}{b.apiKey, expires, signature},
 	}
-	fmt.Println("auth args:", fmt.Sprintf("%v", authMessage["args"]))
+	// fmt.Println("auth args:", fmt.Sprintf("%v", authMessage["args"]))
+	log.Debug().Msg(fmt.Sprintf("auth args: %v", authMessage["args"]))
 	return b.sendAsJson(authMessage)
 }
 
