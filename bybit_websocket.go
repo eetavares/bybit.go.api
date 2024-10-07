@@ -156,7 +156,8 @@ func (b *WebSocket) SendSubscription(args []string) (*WebSocket, error) {
 		"op":     "subscribe",
 		"args":   args,
 	}
-	fmt.Println("subscribe msg:", fmt.Sprintf("%v", subMessage["args"]))
+	// fmt.Println("subscribe msg:", fmt.Sprintf("%v", subMessage["args"]))
+	log.Debug().Msgf("subscribe msg: %v", subMessage["args"])
 	if err := b.sendAsJson(subMessage); err != nil {
 		// fmt.Println("Failed to send subscription:", err)
 		log.Debug().Err(err).Msg("Failed to send subscription")
